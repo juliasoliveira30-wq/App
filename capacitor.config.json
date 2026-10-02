@@ -1,5 +1,5 @@
 {
   "appId": "com.bellacilios",
   "appName": "Studio Bella Cílios",
-  "webDir": "www"
+  "webDir": "dist"
 }
