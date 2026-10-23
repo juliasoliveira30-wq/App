@@ -1,0 +1,62 @@
+#camera-root {
+  margin: 3rem auto;
+  max-width: 48rem;
+}
+
+.camera-card {
+  padding: clamp(1.25rem, 5vw, 2.5rem);
+  text-align: center;
+  border: 1px solid #fce7ef;
+  border-radius: 2rem;
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 18px 50px rgba(113, 45, 70, .10);
+}
+
+.camera-eyebrow {
+  margin: 0;
+  color: #b0445c;
+  font-size: .75rem;
+  font-weight: 700;
+  letter-spacing: .2em;
+}
+
+.camera-card h2 {
+  margin: .75rem 0;
+  color: #251b20;
+  font-size: clamp(1.5rem, 5vw, 2rem);
+}
+
+.camera-intro { margin: 0 auto 1.5rem; color: #695d63; line-height: 1.6; }
+
+.photo-preview {
+  display: grid;
+  min-height: 17rem;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid #f0e5e9;
+  border-radius: 1.5rem;
+  background: #fffafb;
+}
+
+.empty-preview { display: grid; justify-items: center; gap: .65rem; padding: 2rem 1rem; }
+.camera-icon { display: grid; width: 3.5rem; height: 3.5rem; place-items: center; border-radius: 1.2rem; background: #fff0f2; font-size: 1.5rem; }
+.empty-preview strong { color: #31242b; font-size: 1.05rem; }
+.empty-preview span:last-child { color: #85767d; font-size: .9rem; }
+.photo-preview img { display: block; width: 100%; max-height: 30rem; object-fit: contain; }
+
+.camera-button {
+  width: 100%;
+  margin-top: 1.25rem;
+  padding: .95rem 1.25rem;
+  border: 0;
+  border-radius: .85rem;
+  background: #a84459;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+.camera-button:disabled { opacity: .65; cursor: wait; }
+.camera-message { min-height: 1.5rem; margin: .75rem 0 0; color: #695d63; font-size: .9rem; }
+.camera-help { margin-top: 1.5rem; padding: 1rem; border-radius: 1rem; background: #fff5f7; text-align: left; }
+.camera-help span { color: #a84459; font-size: .7rem; font-weight: 700; letter-spacing: .17em; }
+.camera-help p { margin: .45rem 0 0; color: #51464b; }

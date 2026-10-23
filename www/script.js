@@ -1,4 +1,4 @@
-const formulario = document.getElementById('formulario');
+﻿const formulario = document.getElementById('formulario');
 const mensagem = document.getElementById('mensagem');
 
 function formatarData(data) {
@@ -13,7 +13,6 @@ function validarTelefone(telefone) {
 
 formulario.addEventListener('submit', (e) => {
     e.preventDefault();
-
     const nome = document.getElementById('nome').value.trim();
     const telefone = document.getElementById('telefone').value.trim();
     const servico = document.getElementById('servico').value;
@@ -24,22 +23,18 @@ formulario.addEventListener('submit', (e) => {
         mensagem.innerHTML = '<div class="message-error">Por favor, preencha todos os campos obrigatórios antes de enviar.</div>';
         return;
     }
-
     if (!validarTelefone(telefone)) {
         mensagem.innerHTML = '<div class="message-error">Digite um telefone válido com 10 ou 11 dígitos.</div>';
         return;
     }
-
     mensagem.innerHTML = `
         <div class="message-success">
-            <h3 class="font-bold">✅ Agendamento confirmado!</h3>
+            <h3 class="font-bold">Agendamento confirmado!</h3>
             <p class="mt-2"><strong>${nome}</strong>, seu horário foi reservado com sucesso.</p>
             <p class="mt-2">Serviço: <strong>${servico}</strong></p>
             <p>Data: <strong>${formatarData(data)}</strong></p>
             <p>Horário: <strong>${hora}</strong></p>
             <p>Telefone: <strong>${telefone}</strong></p>
-        </div>
-    `;
-
+        </div>`;
     formulario.reset();
 });
