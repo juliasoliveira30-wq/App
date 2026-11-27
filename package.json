@@ -29,6 +29,7 @@
   "dependencies": {
     "@capacitor/android": "^8.5.0",
     "@capacitor/camera": "^8.0.0",
+    "@ionic/pwa-elements": "^3.4.0",
     "@supabase/supabase-js": "^2.117.2",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"

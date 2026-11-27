@@ -1,19 +1,64 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { Capacitor } from '@capacitor/core';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { supabase } from './services/supabase.js';
 import './camera.css';
 
-function CameraCard() {
-  const [photo, setPhoto] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
+const native = Capacitor.isNativePlatform();
+const imageExtensions = new Map([
+  ['image/jpeg', 'jpg'],
+  ['image/png', 'png'],
+  ['image/gif', 'gif'],
+  ['image/webp', 'webp'],
+  ['image/avif', 'avif'],
+]);
 
-  async function choosePhoto() {
+async function uploadPhoto({ webPath, format }) {
+  if (!supabase) {
+    throw new Error('Preencha a URL e a chave publicável do Supabase em .env.local.');
+  }
+
+  const response = await fetch(webPath);
+  if (!response.ok) throw new Error('Não foi possível ler o arquivo da câmera.');
+
+  const blob = await response.blob();
+  if (!blob.size) throw new Error('O arquivo da câmera está vazio.');
+  if (blob.size > 6 * 1024 * 1024) throw new Error('Escolha uma imagem de até 6 MB.');
+
+  const contentType = blob.type.startsWith('image/') ? blob.type : `image/${format}`;
+  const extension = imageExtensions.get(contentType);
+  if (!extension) throw new Error('Escolha uma imagem JPEG, PNG, GIF, WebP ou AVIF.');
+
+  const bucket = supabase.storage.from('fotos-camera');
+  const path = `${crypto.randomUUID()}.${extension}`;
+  const file = new File([blob], path, { type: contentType });
+  const { data, error } = await bucket.upload(path, file, { upsert: false });
+  if (error) throw error;
+
+  return bucket.getPublicUrl(data.path).data.publicUrl;
+}
+
+function CameraCard() {
+  const [localUrl, setLocalUrl] = useState(null);
+  const [publicUrl, setPublicUrl] = useState(null);
+  const [phase, setPhase] = useState('idle');
+  const [message, setMessage] = useState('');
+  const busy = phase !== 'idle';
+
+  useEffect(() => {
+    return () => {
+      if (localUrl?.startsWith('blob:')) URL.revokeObjectURL(localUrl);
+    };
+  }, [localUrl]);
+
+  async function choosePhoto(source) {
     if (busy) return;
-    setBusy(true);
+    setPhase('camera');
     setMessage('');
+
+    let result;
     try {
-      const native = window.Capacitor?.isNativePlatform?.() ?? false;
       if (native) {
         let permissions = await Camera.checkPermissions();
         if (permissions.camera !== 'granted' || permissions.photos === 'denied') {
@@ -21,47 +66,65 @@ function CameraCard() {
         }
         if (permissions.camera !== 'granted' && permissions.photos !== 'granted' && permissions.photos !== 'limited') {
           setMessage('Permissão necessária. Ative câmera ou fotos nas configurações do aplicativo.');
+          setPhase('idle');
           return;
         }
-
-        const result = await Camera.getPhoto({
-          quality: 90,
-          allowEditing: false,
-          resultType: CameraResultType.Uri,
-          source: CameraSource.Prompt,
-          promptLabelHeader: 'Selecionar imagem',
-          promptLabelPhoto: 'Escolher da galeria',
-          promptLabelPicture: 'Tirar uma foto',
-          promptLabelCancel: 'Cancelar',
-        });
-        setPhoto(result.webPath);
-      } else {
-        const result = await Camera.getPhoto({
-          quality: 90,
-          allowEditing: false,
-          resultType: CameraResultType.Uri,
-          source: CameraSource.Prompt,
-        });
-        setPhoto(result.webPath);
       }
-      setMessage('Imagem carregada com sucesso.');
+
+      result = await Camera.getPhoto({
+        quality: 90,
+        width: 1600,
+        height: 1600,
+        allowEditing: false,
+        resultType: CameraResultType.Uri,
+        source,
+        promptLabelHeader: 'Selecionar imagem',
+        promptLabelPhoto: 'Escolher da galeria',
+        promptLabelPicture: 'Tirar uma foto',
+        promptLabelCancel: 'Cancelar',
+      });
+      if (!result.webPath) throw new Error('Caminho da imagem indisponível.');
     } catch (error) {
       const reason = String(error?.message || error).toLowerCase();
-      if (reason.includes('cancel')) setMessage('Ação cancelada. Você pode tentar novamente.');
-      else setMessage('Não foi possível abrir a câmera ou galeria. Tente novamente.');
-      console.info('Seleção de imagem encerrada:', error);
+      setMessage(reason.includes('cancel')
+        ? 'Ação cancelada. Você pode tentar novamente.'
+        : 'Não foi possível abrir a câmera ou galeria. Tente novamente.');
+      setPhase('idle');
+      return;
+    }
+
+    setLocalUrl(result.webPath);
+    setPublicUrl(null);
+    setPhase('upload');
+    setMessage('Enviando imagem ao Supabase…');
+
+    try {
+      setPublicUrl(await uploadPhoto(result));
+      setMessage('Imagem enviada ao Supabase.');
+    } catch (error) {
+      setMessage(`Falha no envio. ${error.message || 'Tente selecionar a imagem novamente.'}`);
     } finally {
-      setBusy(false);
+      setPhase('idle');
     }
   }
+
+  function handleImageError() {
+    if (!publicUrl) return;
+    setPublicUrl(null);
+    setMessage('A foto foi enviada, mas o link público falhou. Verifique se o bucket está público.');
+  }
+
+  const photo = publicUrl ?? localUrl;
 
   return (
     <section className="camera-card" aria-labelledby="camera-title">
       <p className="camera-eyebrow">FOTO DE REFERÊNCIA</p>
       <h2 id="camera-title">Envie uma foto do seu olhar</h2>
-      <p className="camera-intro">Tire uma foto agora ou escolha uma imagem da galeria do dispositivo.</p>
+      <p className="camera-intro">
+        Tire uma foto ou escolha uma imagem. O aplicativo enviará a foto automaticamente e ela poderá ser aberta por qualquer pessoa com o link.
+      </p>
       <div className={`photo-preview ${photo ? 'has-photo' : ''}`}>
-        {photo ? <img src={photo} alt="Prévia da imagem selecionada" /> : (
+        {photo ? <img src={photo} alt="Prévia da imagem selecionada" onError={handleImageError} /> : (
           <div className="empty-preview">
             <span className="camera-icon" aria-hidden="true">📷</span>
             <strong>Nenhuma imagem selecionada</strong>
@@ -69,16 +132,26 @@ function CameraCard() {
           </div>
         )}
       </div>
-      <button className="camera-button" type="button" onClick={choosePhoto} disabled={busy}>
-        {busy ? 'Abrindo câmera…' : photo ? 'Tirar outra foto / Galeria' : 'Tirar Foto / Galeria'}
+      <button className="camera-button" type="button" onClick={() => choosePhoto(native ? CameraSource.Prompt : CameraSource.Camera)} disabled={busy}>
+        {phase === 'camera' ? 'Abrindo câmera ou galeria…' : phase === 'upload' ? 'Enviando imagem…' : native ? 'Tirar foto ou escolher da galeria' : 'Tirar foto'}
       </button>
+      {!native && (
+        <button className="camera-button" type="button" onClick={() => choosePhoto(CameraSource.Photos)} disabled={busy}>
+          Escolher da galeria
+        </button>
+      )}
       <p className="camera-message" role="status" aria-live="polite">{message}</p>
-      <div className="camera-help">
-        <span>COMO FUNCIONA</span>
-        <p>Escolha tirar uma foto ou selecionar uma imagem. A prévia aparece aqui na tela.</p>
-      </div>
     </section>
   );
 }
 
-createRoot(document.getElementById('camera-root')).render(<CameraCard />);
+async function start() {
+  if (!native) {
+    const { defineCustomElements } = await import('@ionic/pwa-elements/loader');
+    await defineCustomElements(window);
+  }
+
+  createRoot(document.getElementById('camera-root')).render(<CameraCard />);
+}
+
+start();

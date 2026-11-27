@@ -2,6 +2,39 @@
 
 Site com formulário React responsivo e aplicativo Android via Capacitor. O SDK do Supabase oferece autenticação, CRUD e sincronização em tempo real com PostgreSQL na nuvem.
 
+## Fotos da câmera no Supabase Storage
+
+O **Database** guarda dados estruturados em tabelas, como nome, serviço e data de um agendamento. O **Storage** guarda os arquivos da foto, organizados por bucket e caminho. O cartão da câmera envia os bytes da imagem ao Storage. Se uma foto precisar ser vinculada a um agendamento, uma coluna do Database pode guardar o caminho do arquivo.
+
+### Configurar o bucket
+
+1. No painel do seu projeto Supabase, abra **Storage** e selecione **New bucket**. Use o nome `fotos-camera` e ative **Public bucket**. Configure o limite de 6 MB e, se ativar a restrição de tipos MIME, permita `image/jpeg`, `image/png`, `image/gif`, `image/webp` e `image/avif`.
+2. No **SQL Editor**, execute o SQL abaixo. O cartão da câmera funciona sem login. A política de `INSERT` permite o envio com a chave publicável apenas nesse bucket. A política de `SELECT` permite consultar um arquivo conhecido pela API sem abrir a listagem de fotos. A URL pública já pode ser aberta por qualquer pessoa com o endereço, mesmo sem essa política de `SELECT`. Use imagens de teste no bucket público. [Políticas do Storage](https://supabase.com/docs/guides/storage/security/access-control)
+3. Confira `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY` no `.env.local`. Se estiver usando uma chave `anon` legada, use `VITE_SUPABASE_ANON_KEY`. Execute `npm ci` e `npm run dev`.
+
+```sql
+drop policy if exists "fotos-camera upload anon" on storage.objects;
+create policy "fotos-camera upload anon"
+on storage.objects for insert to anon
+with check (bucket_id = 'fotos-camera');
+
+drop policy if exists "fotos-camera ler arquivo" on storage.objects;
+create policy "fotos-camera ler arquivo"
+on storage.objects for select to anon
+using (
+  bucket_id = 'fotos-camera'
+  and storage.allow_any_operation(array['object.get_authenticated_info', 'object.get_authenticated'])
+);
+```
+
+### Validar o fluxo
+
+1. No navegador, abra o endereço local exibido pelo Vite. Use **Tirar foto** com uma webcam, ou **Escolher da galeria** para selecionar uma imagem de teste. No Android, execute `npm run android:sync` antes de abrir o projeto no Android Studio.
+2. O Capacitor entrega a URI em `webPath`. O React exibe a prévia local e converte a URI em um `Blob` com `fetch(webPath)` e `response.blob()`. Depois, cria um `File` com o tipo MIME da imagem, chama `upload()` com um nome único e usa `getPublicUrl()` para exibir a imagem salva. [Câmera do Capacitor](https://capacitorjs.com/docs/apis/camera) · [Upload](https://supabase.com/docs/reference/javascript/file-buckets-upload) · [URL pública](https://supabase.com/docs/reference/javascript/file-buckets-getpublicurl)
+3. Quando aparecer **Imagem enviada ao Supabase**, confira o novo arquivo em **Storage → fotos-camera**. Abra o endereço da imagem renderizada em uma janela anônima para verificar o acesso público. Em caso de falha no envio, o cartão preserva a prévia local e informa o erro.
+
+Um bucket privado exige regras de leitura e pode servir fotos com `createSignedUrl()`, que gera um link temporário. Esta atividade usa um bucket público para exibir a URL retornada por `getPublicUrl()`. [Modelos de acesso dos buckets](https://supabase.com/docs/guides/storage/buckets/fundamentals)
+
 ## Executar
 
 1. Instale Node.js 22.12 ou superior e execute `npm ci`.

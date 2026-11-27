@@ -57,6 +57,3 @@
 }
 .camera-button:disabled { opacity: .65; cursor: wait; }
 .camera-message { min-height: 1.5rem; margin: .75rem 0 0; color: #695d63; font-size: .9rem; }
-.camera-help { margin-top: 1.5rem; padding: 1rem; border-radius: 1rem; background: #fff5f7; text-align: left; }
-.camera-help span { color: #a84459; font-size: .7rem; font-weight: 700; letter-spacing: .17em; }
-.camera-help p { margin: .45rem 0 0; color: #51464b; }
